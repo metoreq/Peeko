@@ -5,14 +5,14 @@ const { execFile } = require('child_process');
 // Low GPU use: software compositing. The occlusion switch stops Chromium freezing the overlay behind games.
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
-app.setAppUserModelId('com.local.animalite');
+app.setAppUserModelId('com.metoreq.peeko');
 
-// ---- logging: a startup crash can never be silent again (see %APPDATA%\Anima Lite\log.txt) ----
+// ---- logging: a startup crash can never be silent again (see %APPDATA%\Peeko\log.txt) ----
 function log(...a) { try { fs.mkdirSync(app.getPath('userData'), { recursive: true });
   fs.appendFileSync(path.join(app.getPath('userData'), 'log.txt'), new Date().toISOString() + ' ' + a.join(' ') + '\n'); } catch {} }
 let shown = false;
 process.on('uncaughtException', e => { log('uncaught', (e && e.stack) || e);
-  if (!shown) { shown = true; try { dialog.showErrorBox('Anima Lite error', String((e && e.stack) || e)); } catch {} } });
+  if (!shown) { shown = true; try { dialog.showErrorBox('Peeko error', String((e && e.stack) || e)); } catch {} } });
 process.on('unhandledRejection', e => log('rejection', (e && e.stack) || e));
 app.on('render-process-gone', (e, wc, d) => log('renderer gone:', d.reason));
 app.on('child-process-gone', (e, d) => log('child gone:', d.type, d.reason));
@@ -27,10 +27,12 @@ const OD = { enabled: true, skin: '', display: 0, corner: 'bottom-right', x: 0, 
              margin: 24, opacity: 100, flip: false, move: false };
 const CORNERS = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
 const CF = () => path.join(app.getPath('userData'), 'settings.json');
-const FIRST = !fs.existsSync(CF()); // true only the very first launch
+const LEGACY = path.join(app.getPath('appData'), 'Anima Lite', 'settings.json'); // settings from before the rename
+const SRC = fs.existsSync(CF()) ? CF() : fs.existsSync(LEGACY) ? LEGACY : null;
+const FIRST = !SRC; // true only the very first launch
 let S = { hidden: false, openSettings: false, startup: false, keepTop: true, nextId: 2, overlays: [{ id: 1, ...OD }] };
 try { // also migrates the older single-overlay settings file
-  const j = JSON.parse(fs.readFileSync(CF(), 'utf8'));
+  const j = JSON.parse(fs.readFileSync(SRC, 'utf8'));
   const raw = Array.isArray(j.overlays) ? j.overlays : [j];
   const list = raw.slice(0, MAX).map((o, i) => { const n = { ...OD, id: o.id || i + 1 }; for (const k in OD) if (k in o) n[k] = o[k]; return n; });
   if (list.length) S = { hidden: false, openSettings: !!j.openSettings, startup: !!j.startup, keepTop: j.keepTop !== false, overlays: list,
@@ -38,13 +40,17 @@ try { // also migrates the older single-overlay settings file
 } catch {}
 let tmr; const save = () => { clearTimeout(tmr); tmr = setTimeout(() => { try { fs.writeFileSync(CF(), JSON.stringify(S)); } catch {} }, 300); };
 const find = id => S.overlays.find(o => o.id === id);
+if (SRC === LEGACY) save();
 
 // ---- skins live next to the exe (portable builds unpack to a temp dir, so that one can't be used) ----
 let SK = '';
 function skinsDir() {
   const bundled = app.isPackaged ? path.join(process.resourcesPath, 'skins') : path.join(__dirname, 'skins');
   const base = app.isPackaged ? (process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(process.execPath)) : __dirname;
-  for (const d of [path.join(base, 'skins'), path.join(app.getPath('userData'), 'skins')]) {
+  const beside = path.join(base, 'skins'), inData = path.join(app.getPath('userData'), 'skins');
+  // portable/dev: next to the exe; installed: %APPDATA%\Peeko\skins (the install folder is replaced on update/uninstall)
+  const order = app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR ? [inData, beside] : [beside, inData];
+  for (const d of order) {
     try {
       fs.mkdirSync(d, { recursive: true }); fs.accessSync(d, fs.constants.W_OK);
       if (d !== bundled && !fs.readdirSync(d).length && fs.existsSync(bundled))
@@ -66,7 +72,7 @@ const state = () => ({ err: startupErr, g: { hidden: S.hidden, openSettings: S.o
 // Two things broke the old login-item: (1) portable exes run from a temp copy, so the saved path died;
 // (2) Windows silently skips administrator apps in the normal Run key. A Task Scheduler logon task
 // pointing at the real exe, run with highest privileges and no battery/time-limit rules, fixes both.
-const TASK = 'Anima Lite';
+const TASK = 'Peeko';
 let startupErr = '';
 const exePath = () => process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
 const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -98,7 +104,7 @@ async function setStartup(on) { // resolves true if the setting could be applied
   if (process.platform === 'win32') {
     try {
       if (on) {
-        const f = path.join(os.tmpdir(), 'anima-lite-task.xml');
+        const f = path.join(os.tmpdir(), 'peeko-task.xml');
         const xml = taskXml(exe, `${process.env.USERDOMAIN || os.hostname()}\\${os.userInfo().username}`, author);
         fs.writeFileSync(f, Buffer.concat([Buffer.from([0xFF, 0xFE]), Buffer.from(xml, 'utf16le')]));
         try { await run('schtasks', ['/create', '/tn', TASK, '/xml', f, '/f']); } finally { try { fs.unlinkSync(f); } catch {} }
@@ -167,7 +173,7 @@ function applyAll() {
 
 function openCtl() {
   if (ctl && !ctl.isDestroyed()) { ctl.show(); ctl.focus(); return; }
-  ctl = new BrowserWindow({ width: 420, height: 700, title: 'Anima Lite', icon: ICON, backgroundColor: '#14161d', webPreferences: { preload: pre } });
+  ctl = new BrowserWindow({ width: 420, height: 700, title: 'Peeko', icon: ICON, backgroundColor: '#14161d', webPreferences: { preload: pre } });
   ctl.removeMenu();
   ctl.loadFile(path.join(__dirname, 'control.html'));
   ctl.on('closed', () => { ctl = null; }); // closing frees its memory; overlays keep running
@@ -194,7 +200,7 @@ app.on('window-all-closed', () => {});
 app.on('will-quit', () => globalShortcut.unregisterAll());
 if (LOCK) app.whenReady().then(() => {
   SK = skinsDir(); log('started, skins:', SK);
-  try { tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: 32, height: 32 })); tray.setToolTip('Anima Lite');
+  try { tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: 32, height: 32 })); tray.setToolTip('Peeko');
     tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Settings', click: openCtl },
       { label: 'Show / hide all overlays (Ctrl+Alt+H)', click: toggle }, { type: 'separator' }, { label: 'Quit', click: () => app.quit() }]));
     tray.on('click', openCtl); } catch (e) { log('tray failed', e.message); }
@@ -204,9 +210,10 @@ if (LOCK) app.whenReady().then(() => {
   setInterval(() => { if (!S.keepTop || S.hidden) return;
     for (const r of W.values()) if (!r.win.isDestroyed() && r.win.isVisible()) { r.win.setAlwaysOnTop(true, 'screen-saver', 1); r.win.moveTop(); } }, 1500);
   applyAll();
+  if (SRC === LEGACY) run('schtasks', ['/delete', '/tn', 'Anima Lite', '/f']).catch(() => {}); // old startup task
   if (S.startup) setStartup(true).then(() => push()); // keeps the task pointing at the exe if it was moved
   // Settings stay in the tray on launch (and always on autostart). They open on the very first run, when
   // 'Open settings window on launch' is on, or when there is nothing to show; otherwise via the tray icon.
   const anyShown = S.overlays.some(o => o.enabled) && skins().length > 0;
   if (!anyShown || (!process.argv.includes('--hidden') && (S.openSettings || FIRST))) openCtl();
-}).catch(e => { log('startup failed', (e && e.stack) || e); dialog.showErrorBox('Anima Lite failed to start', String((e && e.stack) || e)); });
+}).catch(e => { log('startup failed', (e && e.stack) || e); dialog.showErrorBox('Peeko failed to start', String((e && e.stack) || e)); });

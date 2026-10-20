@@ -1,7 +1,7 @@
 {
-  "name": "anima-lite",
+  "name": "peeko",
   "version": "0.0.1",
-  "description": "Lightweight and free version of Anima Engine",
+  "description": "Peeko 0.0.1 Prerelease",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -10,10 +10,10 @@
   },
   "devDependencies": {
     "electron": "^44.9.1",
-    "electron-builder": "^26.15.3"
+    "electron-builder": "^26.5.0"
   },
   "build": {
-    "appId": "com.local.animalite",
+    "appId": "com.metoreq.peeko",
     "files": [
       "main.js",
       "preload.js",
@@ -24,15 +24,59 @@
       {
         "from": "skins",
         "to": "skins"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "THIRD_PARTY_NOTICES.txt"
       }
     ],
     "win": {
       "icon": "assets/icon.ico",
-      "target": "portable",
-      "requestedExecutionLevel": "requireAdministrator"
+      "requestedExecutionLevel": "requireAdministrator",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
-    "productName": "Anima Lite",
-    "copyright": "Copyright (c) 2026 Metoreq"
+    "productName": "Peeko",
+    "copyright": "Copyright (c) 2026 Metoreq",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Peeko",
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    }
   },
-  "author": "Metoreq"
+  "author": "Metoreq",
+  "license": "MIT",
+  "keywords": [
+    "overlay",
+    "desktop",
+    "animated",
+    "wallpaper",
+    "electron",
+    "windows"
+  ]
 }
