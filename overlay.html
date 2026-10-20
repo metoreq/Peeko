@@ -1,0 +1,25 @@
+<!doctype html><meta charset="utf-8">
+<style>
+html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+body.move{-webkit-app-region:drag;outline:2px dashed #7c9bff;outline-offset:-2px}
+#m{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
+</style>
+<body>
+<script>
+let el, c = { opacity: 1, flip: false, move: false };
+const b = document.body;
+function paint() {
+  if (el) { el.style.opacity = c.opacity; el.style.transform = c.flip ? 'scaleX(-1)' : ''; }
+  b.classList.toggle('move', c.move);
+}
+api.on('skin', s => {
+  b.replaceChildren();
+  el = document.createElement(s.video ? 'video' : 'img'); el.id = 'm';
+  if (s.video) {
+    el.muted = true; el.loop = true; el.autoplay = true; el.playsInline = true;
+    el.onloadedmetadata = () => api.size(el.videoWidth, el.videoHeight);
+  } else el.onload = () => api.size(el.naturalWidth, el.naturalHeight);
+  el.src = s.url; b.append(el); paint();
+});
+api.on('cfg', x => { c = x; paint(); });
+</script>

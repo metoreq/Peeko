@@ -1,0 +1,70 @@
+<!doctype html><meta charset="utf-8"><title>Anima Lite</title>
+<style>
+:root{color-scheme:dark light}
+body{font:14px system-ui,sans-serif;margin:0;padding:16px;background:#14161d;color:#e8eaf0}
+@media(prefers-color-scheme:light){body{background:#f4f5f8;color:#1b1d24}}
+h1{font-size:17px;margin:0 0 10px}hr{border:0;border-top:1px solid #8884;margin:14px 0}
+.r{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:11px 0}
+.r input[type=range]{flex:1;min-width:0}
+select,button{font:inherit;padding:6px 9px;border-radius:7px;border:1px solid #888;background:transparent;color:inherit;cursor:pointer}
+output{width:38px;text-align:right;opacity:.7}
+.row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+small{opacity:.65;display:block;line-height:1.45;margin-top:12px}
+</style>
+<h1>Anima Lite</h1>
+<div class="row" style="margin-top:0"><select id="sel" style="flex:1"></select><button id="add">Add overlay</button><button id="del">Remove</button></div>
+<div id="f"></div><hr><div id="g"></div><small id="er" style="color:#e66;margin-top:4px"></small>
+<div class="row"><button id="open">Open skins folder</button><button id="scan">Rescan</button><button id="quit">Quit app</button></div>
+<small id="ab"></small>
+<small>Each overlay has its own skin, display, position and size (up to 6; every overlay uses extra memory).
+Drop .gif, .webp, animated .png or .webm/.mp4 files into the skins folder, then press Rescan; transparent files give a see-through overlay.
+Turn Move mode on to drag an overlay, then off again so clicks reach your game. Ctrl+Alt+H hides or shows all overlays.
+Closing this window keeps the overlays running; reopen it from the tray icon.</small>
+<script>
+const F=[['enabled','Overlay on','c'],['skin','Skin','s'],['display','Display','s'],['corner','Position','s'],
+['height','Size (px tall)','r',100,900,10],['margin','Edge margin','r',0,200,4],['opacity','Opacity %','r',10,100,5],
+['flip','Flip horizontally','c'],['move','Move mode (drag overlay)','c']];
+const G=[['hidden','Hide all overlays','c'],['keepTop','Stay above fullscreen games','c'],['startup','Start with system','c'],['openSettings','Open settings window on launch','c']];
+const $=id=>document.getElementById(id);let st,sel=0;
+const cur=()=>st.overlays.find(o=>o.id===sel)||(sel=st.overlays[0].id,st.overlays[0]);
+const opts=k=>k==='skin'?st.skins.map(v=>[v,v]):k==='display'?st.displays.map((v,i)=>[i,v]):
+ [['top-left','Top left'],['top-right','Top right'],['bottom-left','Bottom left'],['bottom-right','Bottom right'],['custom','Custom (dragged)']];
+function mk(host,spec,pre,send){
+  const [k,l,t,a,b,s]=spec,r=document.createElement('div');r.className='r';r.innerHTML='<label>'+l+'</label>';
+  let i;
+  if(t==='s'){i=document.createElement('select');opts(k).forEach(([v,n])=>i.add(new Option(n,v)));}
+  else{i=document.createElement('input');i.type=t==='c'?'checkbox':'range';if(t==='r'){i.min=a;i.max=b;i.step=s;}}
+  i.id=pre+k;
+  i.oninput=()=>{const v=t==='c'?i.checked:(t==='r'||k==='display')?+i.value:i.value;send({[k]:v}).then(x=>{st=x;fill();});};
+  r.append(i);
+  if(t==='r'){const o=document.createElement('output');o.id='o_'+pre+k;r.append(o);}
+  host.append(r);
+}
+function build(){
+  $('f').innerHTML='';$('g').innerHTML='';cur();
+  F.forEach(s=>mk($('f'),s,'f_',p=>api.setOv(sel,p)));
+  G.forEach(s=>mk($('g'),s,'g_',p=>api.set(p)));
+  fill();
+}
+function fill(){
+  const o=cur();
+  $('sel').innerHTML='';st.overlays.forEach((x,n)=>$('sel').add(new Option('Overlay '+(n+1)+(x.enabled?'':' (off)'),x.id)));
+  $('sel').value=o.id;$('add').disabled=st.overlays.length>=st.max;$('del').disabled=st.overlays.length<2;
+  [[F,'f_',o],[G,'g_',st.g]].forEach(([L,pre,src])=>L.forEach(([k,,t])=>{
+    const i=$(pre+k);
+    if(t==='c')i.checked=!!src[k];
+    else if(k==='skin')i.value=st.skins.includes(src[k])?src[k]:(st.skins[0]||'');
+    else i.value=src[k];
+    const out=$('o_'+pre+k);if(out)out.textContent=src[k];
+  }));
+  $('ab').textContent=st.about;
+  $('er').textContent=st.err||'';
+}
+$('sel').onchange=()=>{sel=+$('sel').value;fill();};
+$('add').onclick=()=>api.addOv().then(x=>{st=x;sel=st.overlays[st.overlays.length-1].id;build();});
+$('del').onclick=()=>api.delOv(sel).then(x=>{st=x;build();});
+$('open').onclick=()=>api.act('folder');$('quit').onclick=()=>api.act('quit');
+$('scan').onclick=()=>api.get().then(x=>{st=x;build();});
+api.on('state',x=>{st=x;build();});
+api.get().then(x=>{st=x;build();});
+</script>

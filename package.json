@@ -1,0 +1,38 @@
+{
+  "name": "anima-lite",
+  "version": "0.0.1",
+  "description": "Lightweight and free version of Anima Engine",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "dist:user": "electron-builder --config.win.requestedExecutionLevel=asInvoker"
+  },
+  "devDependencies": {
+    "electron": "^44.9.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.local.animalite",
+    "files": [
+      "main.js",
+      "preload.js",
+      "*.html",
+      "assets/**"
+    ],
+    "extraResources": [
+      {
+        "from": "skins",
+        "to": "skins"
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": "portable",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "productName": "Anima Lite",
+    "copyright": "Copyright (c) 2026 Metoreq"
+  },
+  "author": "Metoreq"
+}
